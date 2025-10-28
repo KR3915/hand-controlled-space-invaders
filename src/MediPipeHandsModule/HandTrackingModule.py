@@ -1,7 +1,8 @@
 import cv2
-import mediapipe as mp 
+import mediapipe as mp
 import time
 import numpy as np
+from google.protobuf.json_format import MessageToDict
 #init camera on camera 0 (inbuilt)
 
 class hand_detector():
@@ -25,19 +26,42 @@ class hand_detector():
         return img
 
     def find_position(self, img, hand_no=0, draw=True):
+        """
+        Finds the landmarks of a specific hand and returns them in a list.
 
+        Args:
+            img: The image to find the landmarks in.
+            hand_no: The index of the hand to find the landmarks for.
+            draw: Whether to draw the landmarks on the image.
+
+        Returns:
+            A list of landmarks for the specified hand.
+        """
         lm_list = []
         if self.results.multi_hand_landmarks:
             my_hand = self.results.multi_hand_landmarks[hand_no]
-            for handLms in self.results.multi_hand_landmarks: #get landmarks of each hand
-                for id, lm in enumerate(handLms.landmark):  
-                    h, w, c = img.shape # get shape of image (height, width, color channel)
-                    cx, cy = int(lm.x*w), int(lm.y*h) #get x and y of landmark in pixels
-                    lm_list.append([id, cx, cy])
-                    #draws on the landmark 0
+            for id, lm in enumerate(my_hand.landmark):
+                h, w, c = img.shape
+                cx, cy = int(lm.x * w), int(lm.y * h)
+                lm_list.append([id, cx, cy])
 
-                self.mpDraw.draw_landmarks(img, my_hand, self.mp_hands.HAND_CONNECTIONS) 
-        return lm_list 
+            if draw:
+                self.mpDraw.draw_landmarks(img, my_hand, self.mp_hands.HAND_CONNECTIONS)
+        return lm_list
+
+    def get_handedness(self):
+        """
+        Determines the handedness of the detected hands.
+
+        Returns:
+            A list of strings indicating the handedness of each detected hand ('Left' or 'Right').
+        """
+        handedness_list = []
+        if self.results.multi_hand_landmarks and self.results.multi_handedness:
+            for hand_handedness in self.results.multi_handedness:
+                handedness_dict = MessageToDict(hand_handedness)
+                handedness_list.append(handedness_dict['classification'][0]['label'])
+        return handedness_list
     
     def get_bbox_location(self, img, hand_no=0, draw=True):
 
@@ -104,13 +128,19 @@ def main():
     cap = cv2.VideoCapture(0)
     pTime = 0
     cTime = 0
-    detector = handDetector()
+    detector = hand_detector()
     while True:
         success, img = cap.read()
-        img = detector.find_hands(img)    # count fps
-        lm_list = detector.find_position(img)
-        if len(lm_list) != 0:
-            print(lm_list[4])
+        img = detector.find_hands(img)
+        handedness = detector.get_handedness()
+
+        if handedness:
+            for i, hand in enumerate(handedness):
+                lm_list = detector.find_position(img, hand_no=i)
+                if len(lm_list) != 0:
+                    print(f'{hand} Hand Landmarks:')
+                    print(lm_list[4])
+
         cv2.imshow("Image", img)
         cv2.waitKey(1)
 
