@@ -38,15 +38,67 @@ class hand_detector():
 
                 self.mpDraw.draw_landmarks(img, my_hand, self.mp_hands.HAND_CONNECTIONS) 
         return lm_list 
+    
+    def get_bbox_location(self, img, hand_no=0, draw=True):
 
-    # cTime = time.time()
-    # fps = 1/(cTime-pTime)
-    # pTime = cTime
-    # # draw fps on screen 
-    # cv2.putText(img, str(int(fps)), (10, 70), cv2.FONT_HERSHEY_PLAIN, 3,(255,0,255), 3)
-    #
-    # cv2.imshow("Image", img)
-    # cv2.waitKey(1)
+        lm_list = []
+        x_list = []
+        y_list = []
+
+        bbox = None
+        
+        if self.results.multi_hand_landmarks:
+            for hand_index, my_hand in enumerate(self.results.multi_hand_landmarks):
+                if hand_index == hand_no:
+                    for id, lm in enumerate(my_hand.landmark):
+                        h,w,c = img.shape
+                        cx, cy = int(lm.x*w), int(lm.y*h)
+
+                        x_list.append(cx)
+                        y_list.append(cy)
+                        lm_list.append([id, cx, cy])
+
+                #calculate bbox
+                    x_min, x_max = min(x_list), max(x_list)
+                    y_min, y_max = min(y_list), max(y_list)
+
+                #add paddingmin 
+                    buffer = 20
+                    x_min = max(0, x_min - buffer)
+                    y_min = max(0, y_min - buffer)
+                    x_max = max(0, x_max + buffer)
+                    y_max = max(0, y_max + buffer)
+                   
+                    x_min_coord = min(x_list)
+                    x_max_coord = max(x_list)
+                    y_min_coord = min(y_list)
+                    y_max_coord = max(y_list)
+
+                    lm_min_x = next(lm for lm in lm_list if lm[1] == x_min_coord)
+                    lm_max_x = next(lm for lm in lm_list if lm[1] == x_max_coord)
+
+                    lm_min_y = next(lm for lm in lm_list if lm[2] == y_min_coord)
+                    lm_max_y = next(lm for lm in lm_list if lm[2] == y_max_coord)
+                    
+                    idd, minxx, minxy = lm_min_x
+                    idd, minyx, minyy = lm_min_y
+                    idd, maxxx, maxxy = lm_max_x
+                    idd, maxyx, maxyy = lm_max_y
+
+
+
+
+
+
+                    bbox = (x_min, y_min, x_max - x_min, y_max - y_min)
+                    if draw:
+                        cv2.rectangle(img, (x_min, y_min), (x_max, y_max), (255, 0, 0), 2)
+                        cv2.line(img, (minxx, minxy), (maxxx, maxxy), (255,0,255), 2)
+                        cv2.line(img, (minyx, minyy), (maxyx, maxyy), (255,0,255), 2)
+
+                    return lm_list, bbox
+        return lm_list, bbox
+
 
 def main():
     cap = cv2.VideoCapture(0)
@@ -59,12 +111,6 @@ def main():
         lm_list = detector.find_position(img)
         if len(lm_list) != 0:
             print(lm_list[4])
-        # cTime = time.time()
-        # fps = 1/(cTime-pTime)
-        # pTime = cTime
-        # # draw fps on screen 
-        # cv2.putText(img, str(int(fps)), (10, 70), cv2.FONT_HERSHEY_PLAIN, 3,(255,0,255), 3)
-
         cv2.imshow("Image", img)
         cv2.waitKey(1)
 
