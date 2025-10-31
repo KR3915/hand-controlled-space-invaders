@@ -3,6 +3,7 @@ import random
 import cv2
 import numpy as np
 from src.MediPipeHandsModule.HandTrackingModule import hand_detector
+from src.MediPipeHandsModule.GestureEvaluator import evaluate
 
 # Initialize Pygame
 pygame.init()
@@ -74,6 +75,23 @@ def gameLoop():
         success, img = cap.read()
         img = detector.find_hands(img)
         lm_list, bbox, mid = detector.get_bbox_location(img)
+        handedness_list = detector.get_handedness()
+
+        if lm_list:
+            if lm_list and handedness_list and bbox:
+                gesture = evaluate(lm_list, handedness_list[0], bbox)
+            if gesture == 1: # Up
+                y1_change = -SNAKE_BLOCK
+                x1_change = 0
+            elif gesture == 2: # Left
+                x1_change = -SNAKE_BLOCK
+                y1_change = 0
+            elif gesture == 3: # Down (assuming 3 for down)
+                y1_change = SNAKE_BLOCK
+                x1_change = 0
+            elif gesture == 4: # Right
+                x1_change = SNAKE_BLOCK
+                y1_change = 0
 
         if x1 >= SCREEN_WIDTH or x1 < 0 or y1 >= SCREEN_HEIGHT or y1 < 0:
             game_close = True
