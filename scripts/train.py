@@ -5,7 +5,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 import joblib
 
-df = pd.read_csv('../data/numbers/gestures-snake.csv', header=None)
+df = pd.read_csv('/home/kr3915/Projects/MediaControl/data/numbers/gestures-snake.csv', header=None)
 
 if len(df) < 2:
     print("Not enough data to train the model. Please capture more gestures.")
@@ -30,5 +30,5 @@ else:
 
     accuracy = model.score(X_test, y_test)
     print(f'Accuracy for unified model: {accuracy:.2f}')
-    joblib.dump(model, '../models/gesture_model.pkl')
+    joblib.dump(model, '/home/kr3915/Projects/MediaControl/models/gesture_model.pkl')
     print('Saved unified gesture model.')

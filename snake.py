@@ -1,3 +1,4 @@
+import collections
 import pygame
 import random
 import cv2
@@ -83,11 +84,12 @@ class Game:
 
         self.cap = cv2.VideoCapture(0)
         self.detector = hand_detector(max_hands=1)
-        self.gesture_evaluator = GestureEvaluator("models/gesture_model_knn.pkl")
+        self.gesture_evaluator = GestureEvaluator("models/gesture_model.pkl")
 
         self.snake = Snake(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, self.SNAKE_BLOCK)
         self.food = Food(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, self.SNAKE_BLOCK)
         self.clock = pygame.time.Clock()
+        self.recent_gestures = collections.deque(maxlen=5)
 
     def message(self, msg, color):
         mesg = self.FONT.render(msg, True, color)
@@ -143,25 +145,29 @@ class Game:
             if lm_list and handedness_list:
                 if bbox:
                     gesture = self.gesture_evaluator.evaluate(lm_list, handedness_list[0], bbox)
-                    print(f"Detected gesture: {gesture}")
+                    self.recent_gestures.append(gesture[0])
                     x, y, w, h = bbox
                     cv2.putText(img, str(gesture[0]), (x + w + 10, y + 20), cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 2)
-                if gesture[0] == 1: # Up
-                    if self.snake.y1_change != self.SNAKE_BLOCK:
-                        self.snake.y1_change = -self.SNAKE_BLOCK
-                        self.snake.x1_change = 0
-                elif gesture[0] == 2: # Left
-                    if self.snake.x1_change != self.SNAKE_BLOCK:
-                        self.snake.x1_change = -self.SNAKE_BLOCK
-                        self.snake.y1_change = 0
-                elif gesture[0] == 3: # Down
-                    if self.snake.y1_change != -self.SNAKE_BLOCK:
-                        self.snake.y1_change = self.SNAKE_BLOCK
-                        self.snake.x1_change = 0
-                elif gesture[0] == 4: # Right
-                    if self.snake.x1_change != -self.SNAKE_BLOCK:
-                        self.snake.x1_change = self.SNAKE_BLOCK
-                        self.snake.y1_change = 0
+
+                if len(self.recent_gestures) == self.recent_gestures.maxlen:
+                    most_common_gesture = collections.Counter(self.recent_gestures).most_common(1)[0][0]
+
+                    if most_common_gesture == 1: # Up
+                        if self.snake.y1_change != self.SNAKE_BLOCK:
+                            self.snake.y1_change = -self.SNAKE_BLOCK
+                            self.snake.x1_change = 0
+                    elif most_common_gesture == 2: # Left
+                        if self.snake.x1_change != self.SNAKE_BLOCK:
+                            self.snake.x1_change = -self.SNAKE_BLOCK
+                            self.snake.y1_change = 0
+                    elif most_common_gesture == 3: # Down
+                        if self.snake.y1_change != -self.SNAKE_BLOCK:
+                            self.snake.y1_change = self.SNAKE_BLOCK
+                            self.snake.x1_change = 0
+                    elif most_common_gesture == 4: # Right
+                        if self.snake.x1_change != -self.SNAKE_BLOCK:
+                            self.snake.x1_change = self.SNAKE_BLOCK
+                            self.snake.y1_change = 0
 
             if self.snake.has_collided_with_wall() or self.snake.has_collided_with_self():
                 game_close = True
