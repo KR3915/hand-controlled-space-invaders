@@ -13,7 +13,7 @@ class hand_detector():
         self.track_con = track_con
 
         self.mp_hands = mp.solutions.hands
-        self.hands = self.mp_hands.Hands()
+        self.hands = self.mp_hands.Hands(self.mode, self.max_hands, min_detection_confidence=self.detection_con, min_tracking_confidence=self.track_con)
         self.mpDraw = mp.solutions.drawing_utils
 
     def find_hands(self, img, draw=True):

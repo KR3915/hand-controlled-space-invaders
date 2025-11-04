@@ -46,6 +46,12 @@ class Alien(pygame.sprite.Sprite):
         super().__init__()
         self.type = alien_type
         self.points = points
+        if self.type == "red":
+            self.color = (255, 0, 0)
+        elif self.type == "yellow":
+            self.color = (255, 255, 0)
+        else:
+            self.color = (0, 255, 0)
         image_path = f"assets/{alien_type}.png"
         self.image = pygame.image.load(image_path).convert_alpha()
         self.image = pygame.transform.scale(self.image, (40, 30))
@@ -73,11 +79,11 @@ class Bullet(pygame.sprite.Sprite):
             self.kill()
 
 class AlienBullet(pygame.sprite.Sprite):
-    def __init__(self, x, y, screen_height):
+    def __init__(self, x, y, screen_height, color):
         super().__init__()
         self.screen_height = screen_height
         self.image = pygame.Surface([5, 15])
-        self.image.fill((255, 0, 0))  # Red
+        self.image.fill(color)
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
@@ -106,7 +112,7 @@ class Game:
         self.FONT = pygame.font.SysFont(None, 50)
 
         self.cap = cv2.VideoCapture(0)
-        self.detector = hand_detector(max_hands=1)
+        self.detector = hand_detector(max_hands=1, track_con=0.8)
         self.gesture_evaluator = GestureEvaluator("models/gesture_model.pkl")
         self.recent_gestures = collections.deque(maxlen=5)
 
@@ -123,7 +129,7 @@ class Game:
         self.alien_move_down_amount = 10
         self.score = 0
 
-        self.alien_shoot_cooldown = 1000
+        self.alien_shoot_cooldown = 250
         self.last_alien_shot_time = 0
 
         self.clock = pygame.time.Clock()
@@ -254,7 +260,7 @@ class Game:
             if now - self.last_alien_shot_time > self.alien_shoot_cooldown and self.aliens:
                 self.last_alien_shot_time = now
                 random_alien = random.choice(self.aliens.sprites())
-                alien_bullet = AlienBullet(random_alien.rect.centerx, random_alien.rect.bottom, self.SCREEN_HEIGHT)
+                alien_bullet = AlienBullet(random_alien.rect.centerx, random_alien.rect.bottom, self.SCREEN_HEIGHT, random_alien.color)
                 self.all_sprites.add(alien_bullet)
                 self.alien_bullets.add(alien_bullet)
 
