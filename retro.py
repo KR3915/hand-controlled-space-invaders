@@ -325,18 +325,30 @@ class Paddle(pygame.sprite.Sprite):
     def __init__(self, screen_width, screen_height):
         super().__init__()
         self.screen_width = screen_width
-        self.image = pygame.Surface((120, 20))
+        self.screen_height = screen_height
+        self.width = 120
+        self.height = 20
+        self.image = pygame.Surface((self.width, self.height))
         self.image.fill((0, 255, 0))
         self.rect = self.image.get_rect()
-        self.rect.x = screen_width // 2 - 60
+        self.rect.x = screen_width // 2 - self.width // 2
         self.rect.y = screen_height - 50
         self.speed = 12
-        
+
+    def enlarge(self):
+        old_center = self.rect.centerx
+        self.width = min(250, self.width + 50)  # Max width of 250
+        self.image = pygame.Surface((self.width, self.height))
+        self.image.fill((0, 255, 0))
+        self.rect = self.image.get_rect()
+        self.rect.centerx = old_center
+        self.rect.y = self.screen_height - 50
+
     def move_left(self):
         self.rect.x -= self.speed
         if self.rect.x < 0:
             self.rect.x = 0
-            
+
     def move_right(self):
         self.rect.x += self.speed
         if self.rect.x > self.screen_width - self.rect.width:
@@ -353,17 +365,24 @@ class Ball(pygame.sprite.Sprite):
         self.speed_x = random.choice([-5, 5])
         self.speed_y = -6
         self.max_speed = 10
-        
+
+    def make_faster(self):
+        # Increase speed by 2
+        if abs(self.speed_x) < self.max_speed:
+            self.speed_x *= 1.5
+        if abs(self.speed_y) < self.max_speed:
+            self.speed_y *= 1.5
+
     def update(self, screen_width, screen_height):
         self.rect.x += self.speed_x
         self.rect.y += self.speed_y
-        
+
         # Bounce off walls
         if self.rect.left <= 0 or self.rect.right >= screen_width:
             self.speed_x *= -1
         if self.rect.top <= 60:
             self.speed_y *= -1
-            
+
     def bounce(self):
         self.speed_y *= -1
 
@@ -378,6 +397,46 @@ class Brick(pygame.sprite.Sprite):
         self.rect.y = y
         self.points = points
 
+class PowerUp(pygame.sprite.Sprite):
+    def __init__(self, x, y, power_type):
+        super().__init__()
+        self.power_type = power_type  # 'multi_ball', 'double_balls', 'bigger_paddle', 'faster_ball'
+        self.image = pygame.Surface((30, 30), pygame.SRCALPHA)
+
+        # Different colors for different power-ups
+        if power_type == 'multi_ball':
+            color = (255, 100, 255)  # Magenta - spawn 2 balls
+            symbol = "MB"
+        elif power_type == 'double_balls':
+            color = (100, 255, 255)  # Cyan - double all balls
+            symbol = "x2"
+        elif power_type == 'bigger_paddle':
+            color = (255, 255, 100)  # Yellow - bigger paddle
+            symbol = "BP"
+        else:  # faster_ball
+            color = (255, 100, 100)  # Red - faster ball
+            symbol = "FB"
+
+        # Draw power-up
+        pygame.draw.circle(self.image, color, (15, 15), 15)
+        pygame.draw.circle(self.image, (0, 0, 0), (15, 15), 15, 2)
+
+        # Draw symbol
+        font = pygame.font.SysFont('courier', 14, bold=True)
+        text = font.render(symbol, True, (0, 0, 0))
+        text_rect = text.get_rect(center=(15, 15))
+        self.image.blit(text, text_rect)
+
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.speed_y = 3
+
+    def update(self, screen_height):
+        self.rect.y += self.speed_y
+        if self.rect.top > screen_height:
+            self.kill()
+
 class BreakoutGame:
     def __init__(self, screen, cap, detector, gesture_evaluator):
         self.screen = screen
@@ -387,20 +446,26 @@ class BreakoutGame:
         self.detector = detector
         self.gesture_evaluator = gesture_evaluator
         self.recent_gestures = collections.deque(maxlen=5)
-        
+
         self.font = pygame.font.SysFont('courier', 36, bold=True)
-        
+
         self.paddle = Paddle(self.width, self.height)
-        self.ball = Ball(self.width // 2, self.height // 2)
+        self.balls = pygame.sprite.Group()
         self.bricks = pygame.sprite.Group()
+        self.powerups = pygame.sprite.Group()
         self.all_sprites = pygame.sprite.Group()
-        
+
+        # Create initial ball
+        initial_ball = Ball(self.width // 2, self.height // 2)
+        self.balls.add(initial_ball)
+        self.all_sprites.add(initial_ball)
+
         self.score = 0
-        self.lives = 3
+        self.lives = 1  # Changed to 1 life
         self.level = 1
-        
+
         self.create_bricks()
-        self.all_sprites.add(self.paddle, self.ball)
+        self.all_sprites.add(self.paddle)
         
     def create_bricks(self):
         self.bricks.empty()
@@ -453,7 +518,7 @@ class BreakoutGame:
     def run(self):
         clock = pygame.time.Clock()
         running = True
-        
+
         while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -461,59 +526,103 @@ class BreakoutGame:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         return "menu"
-            
+
             success, img = self.handle_gestures()
-            
-            # Update
-            self.ball.update(self.width, self.height)
-            
-            # Ball-paddle collision
-            if self.ball.rect.colliderect(self.paddle.rect) and self.ball.speed_y > 0:
-                self.ball.bounce()
-                # Adjust angle based on hit position
-                hit_pos = (self.ball.rect.centerx - self.paddle.rect.left) / self.paddle.rect.width
-                self.ball.speed_x = (hit_pos - 0.5) * 12
-            
-            # Ball-brick collision
-            brick_hits = pygame.sprite.spritecollide(self.ball, self.bricks, True)
-            if brick_hits:
-                self.ball.bounce()
-                for brick in brick_hits:
-                    self.score += brick.points
-            
-            # Ball fell off screen
-            if self.ball.rect.top > self.height:
-                self.lives -= 1
-                if self.lives <= 0:
-                    return "menu"
-                self.ball = Ball(self.width // 2, self.height // 2)
-                self.all_sprites.add(self.ball)
-            
+
+            # Update balls
+            for ball in self.balls:
+                ball.update(self.width, self.height)
+
+                # Ball-paddle collision
+                if ball.rect.colliderect(self.paddle.rect) and ball.speed_y > 0:
+                    ball.bounce()
+                    # Adjust angle based on hit position
+                    hit_pos = (ball.rect.centerx - self.paddle.rect.left) / self.paddle.rect.width
+                    ball.speed_x = (hit_pos - 0.5) * 12
+
+                # Ball-brick collision
+                brick_hits = pygame.sprite.spritecollide(ball, self.bricks, True)
+                if brick_hits:
+                    ball.bounce()
+                    for brick in brick_hits:
+                        self.score += brick.points
+                        # 30% chance to spawn a power-up
+                        if random.random() < 0.3:
+                            power_type = random.choice(['multi_ball', 'double_balls', 'bigger_paddle', 'faster_ball'])
+                            powerup = PowerUp(brick.rect.centerx, brick.rect.centery, power_type)
+                            self.powerups.add(powerup)
+                            self.all_sprites.add(powerup)
+
+                # Ball fell off screen
+                if ball.rect.top > self.height:
+                    ball.kill()
+                    self.all_sprites.remove(ball)
+
+            # Update power-ups
+            for powerup in self.powerups:
+                powerup.update(self.height)
+
+            # Power-up collision with paddle
+            powerup_hits = pygame.sprite.spritecollide(self.paddle, self.powerups, True)
+            for powerup in powerup_hits:
+                if powerup.power_type == 'multi_ball':
+                    # Spawn 2 new balls from paddle position
+                    for i in range(2):
+                        new_ball = Ball(self.paddle.rect.centerx, self.paddle.rect.top - 20)
+                        new_ball.speed_x = random.choice([-5, 5])
+                        new_ball.speed_y = -6
+                        self.balls.add(new_ball)
+                        self.all_sprites.add(new_ball)
+                elif powerup.power_type == 'double_balls':
+                    # Double all balls on screen
+                    current_balls = list(self.balls)
+                    for ball in current_balls:
+                        new_ball = Ball(ball.rect.x, ball.rect.y)
+                        new_ball.speed_x = -ball.speed_x  # Opposite direction
+                        new_ball.speed_y = ball.speed_y
+                        self.balls.add(new_ball)
+                        self.all_sprites.add(new_ball)
+                elif powerup.power_type == 'bigger_paddle':
+                    # Make paddle larger
+                    self.paddle.enlarge()
+                elif powerup.power_type == 'faster_ball':
+                    # Make all balls faster
+                    for ball in self.balls:
+                        ball.make_faster()
+
+            # Check if no balls on screen - game over
+            if len(self.balls) == 0:
+                return "menu"
+
             # Level complete
             if len(self.bricks) == 0:
                 self.level += 1
                 self.create_bricks()
-                self.ball = Ball(self.width // 2, self.height // 2)
-            
+                # Reset balls
+                self.balls.empty()
+                new_ball = Ball(self.width // 2, self.height // 2)
+                self.balls.add(new_ball)
+                self.all_sprites.add(new_ball)
+
             # Draw
             self.screen.fill((0, 0, 0))
             pygame.draw.line(self.screen, (0, 255, 0), (0, 60), (self.width, 60), 2)
-            
+
             self.all_sprites.draw(self.screen)
-            
+
             # HUD
             score_text = self.font.render(f"SCORE: {self.score:05d}", True, (255, 255, 255))
             self.screen.blit(score_text, (20, 20))
-            
-            lives_text = self.font.render(f"LIVES: {self.lives}", True, (255, 255, 255))
-            self.screen.blit(lives_text, (self.width - 200, 20))
-            
+
+            balls_text = self.font.render(f"BALLS: {len(self.balls)}", True, (255, 255, 255))
+            self.screen.blit(balls_text, (self.width - 200, 20))
+
             level_text = self.font.render(f"LVL: {self.level}", True, (255, 255, 255))
             self.screen.blit(level_text, (self.width // 2 - 50, 20))
-            
+
             # Scanlines
             self.draw_scanline()
-            
+
             # Webcam
             if success and img is not None:
                 img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -522,10 +631,10 @@ class BreakoutGame:
                 frame = pygame.transform.scale(frame, (240, 180))
                 pygame.draw.rect(self.screen, (0, 255, 0), (self.width - 262, 78, 244, 184), 2)
                 self.screen.blit(frame, (self.width - 260, 80))
-            
+
             pygame.display.flip()
             clock.tick(60)
-        
+
         return "quit"
 
 # ============================================
