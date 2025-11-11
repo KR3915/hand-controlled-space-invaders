@@ -5,7 +5,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 import joblib
 
-df = pd.read_csv('/home/kr3915/Projects/MediaControl/data/numbers/gestures-snake.csv', header=None)
+df = pd.read_csv('/home/kr3915/Projects/MediaControl/data/retro/gestures.csv', header=None)
 
 if len(df) < 2:
     print("Not enough data to train the model. Please capture more gestures.")

@@ -36,7 +36,7 @@ def normalize_landmarks(lm_list, bbox, handedness):
     return normalized_landmarks
     
 def write_data(data, hand, number):
-    with open (data_path+'/numbers/gestures-snake.csv', 'a') as f:
+    with open (data_path+'/retro/gestures.csv', 'a') as f:
         wr = csv.writer(f)
         wr.writerow([number, hand.lower()] + [item for sublist in data for item in sublist])
 

@@ -8,6 +8,92 @@ from src.MediPipeHandsModule.GestureEvaluator import GestureEvaluator
 import collections
 
 # ============================================
+# RETRO DEATH SCREEN
+# ============================================
+
+def show_death_screen(screen, score, game_name):
+    """Display a retro-style death screen with the final score"""
+    width = screen.get_width()
+    height = screen.get_height()
+
+    title_font = pygame.font.SysFont('courier', 96, bold=True)
+    font = pygame.font.SysFont('courier', 48, bold=True)
+    small_font = pygame.font.SysFont('courier', 36, bold=True)
+
+    # Scanline effect function
+    def draw_scanlines():
+        for i in range(0, height, 4):
+            pygame.draw.line(screen, (10, 10, 10), (0, i), (width, i), 1)
+
+    # Animation loop
+    clock = pygame.time.Clock()
+    flash_timer = 0
+    show_text = True
+    waiting = True
+
+    while waiting:
+        dt = clock.tick(60) / 1000.0
+        flash_timer += dt
+
+        # Flash effect every 0.5 seconds
+        if flash_timer >= 0.5:
+            flash_timer = 0
+            show_text = not show_text
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return "quit"
+            if event.type == pygame.KEYDOWN:
+                if event.key in [pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE]:
+                    return "menu"
+
+        # Draw death screen
+        screen.fill((0, 0, 0))
+
+        # Red flash overlay
+        red_overlay = pygame.Surface((width, height))
+        red_overlay.set_alpha(30)
+        red_overlay.fill((255, 0, 0))
+        screen.blit(red_overlay, (0, 0))
+
+        # "GAME OVER" text with shadow
+        game_over_text = "GAME OVER"
+        shadow = title_font.render(game_over_text, True, (100, 0, 0))
+        shadow_rect = shadow.get_rect(center=(width // 2 + 6, height // 2 - 150 + 6))
+        screen.blit(shadow, shadow_rect)
+
+        main_text = title_font.render(game_over_text, True, (255, 0, 0))
+        main_rect = main_text.get_rect(center=(width // 2, height // 2 - 150))
+        screen.blit(main_text, main_rect)
+
+        # Game name
+        game_text = font.render(game_name, True, (255, 255, 0))
+        game_rect = game_text.get_rect(center=(width // 2, height // 2 - 50))
+        screen.blit(game_text, game_rect)
+
+        # Score
+        score_text = font.render(f"FINAL SCORE: {score:05d}", True, (0, 255, 0))
+        score_rect = score_text.get_rect(center=(width // 2, height // 2 + 50))
+        screen.blit(score_text, score_rect)
+
+        # Flashing "Press any key" message
+        if show_text:
+            continue_text = small_font.render("PRESS ANY KEY TO CONTINUE", True, (255, 255, 255))
+            continue_rect = continue_text.get_rect(center=(width // 2, height // 2 + 150))
+            screen.blit(continue_text, continue_rect)
+
+        # Border
+        pygame.draw.rect(screen, (255, 0, 0), (10, 10, width - 20, height - 20), 8)
+        pygame.draw.rect(screen, (100, 0, 0), (20, 20, width - 40, height - 40), 4)
+
+        # Scanlines
+        draw_scanlines()
+
+        pygame.display.flip()
+
+    return "menu"
+
+# ============================================
 # GAME 1: PAC-MAN STYLE MAZE GAME
 # ============================================
 
@@ -219,7 +305,7 @@ class PacManGame:
 
         self.score = 0
         self.level = 1
-        self.lives = 3
+        self.lives = 1
         self.spawn_x = 0
         self.spawn_y = 0
 
@@ -342,7 +428,7 @@ class PacManGame:
             if pygame.sprite.spritecollide(self.player, self.ghosts, False):
                 self.lives -= 1
                 if self.lives <= 0:
-                    return "menu"
+                    return show_death_screen(self.screen, self.score, "PAC-MAN MAZE")
                 # Respawn at original spawn position with grid alignment
                 self.player.rect.x = self.spawn_x
                 self.player.rect.y = self.spawn_y
@@ -673,7 +759,7 @@ class BreakoutGame:
 
             # Check if no balls on screen - game over
             if len(self.balls) == 0:
-                return "menu"
+                return show_death_screen(self.screen, self.score, "BRICK BREAKER")
 
             # Level complete
             if len(self.bricks) == 0:
@@ -908,7 +994,7 @@ class SpaceInvadersGame:
         self.alien_move_down_amount = 16
         self.score = 0
         self.level = 1
-        self.lives = 3
+        self.lives = 1
 
         self.alien_shoot_cooldown = 0.8  # seconds (was 800ms)
         self.last_alien_shot_time = 0
@@ -1028,12 +1114,12 @@ class SpaceInvadersGame:
             if player_alien_collisions:
                 self.lives -= 1
                 if self.lives <= 0:
-                    return "menu"
+                    return show_death_screen(self.screen, self.score, "SPACE INVADERS")
                 self.player.rect.x = self.width // 2
-            
+
             for alien in self.aliens:
                 if alien.rect.bottom >= self.player.rect.top:
-                    return "menu"
+                    return show_death_screen(self.screen, self.score, "SPACE INVADERS")
             
             if not self.aliens:
                 self.level += 1
@@ -1060,7 +1146,7 @@ class SpaceInvadersGame:
             if player_hit:
                 self.lives -= 1
                 if self.lives <= 0:
-                    return "menu"
+                    return show_death_screen(self.screen, self.score, "SPACE INVADERS")
             
             # Draw
             self.screen.fill((0, 0, 0))
